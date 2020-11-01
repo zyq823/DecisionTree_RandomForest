@@ -4,12 +4,17 @@ import math
 import csv
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import cross_val_score
+from sklearn.model_selection import GridSearchCV
+from sklearn.model_selection import RandomizedSearchCV
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.tree import DecisionTreeClassifier
 from operator import itemgetter
 from sklearn import tree
-import graphviz
 from sklearn.tree import export_text
 from sklearn.metrics import accuracy_score
+
+
+# Question 1
 
 class DataPoint(object): # DataPoint class helps to group data and methods
     def __init__(self, attr):
@@ -42,6 +47,7 @@ def parse_dataset(filename):
     return dataset
 
 train_set = parse_dataset('hw4_train.csv')
+
 
 def plot_histo(dataset):
     feat1 = [case.clump for case in dataset]
@@ -103,6 +109,8 @@ def plot_histo(dataset):
 # plot_histo(train_set)
 
 
+# Question 2
+
 def cond_entropy(dataset):
     feats = list(dataset[0].__dict__) # put all attributes in list
     for i in range(9): # each feature
@@ -132,7 +140,7 @@ testing_set = np.array(list(csv.reader(open("hw4_test.csv", "r"), delimiter=",")
 
 def decision_tree(dataset, testset):
     y = dataset[:, -1] # last column of matrix
-    X = dataset[:, :-1] # all columns upto last column
+    X = dataset[:, :-1] # all columns up to last column
     
     hpAcc = [] # store average accuracy for each hyperparameter value (tree depth) tested
     # try out different values for tree depth
@@ -143,7 +151,6 @@ def decision_tree(dataset, testset):
         acc = cross_val_score(estimator = DTC, X=X, y=y, cv=5)
         hpAcc.append((i,acc.mean()))
         
-    
     best_hp = max(hpAcc, key=itemgetter(1))[0]
     
     DTC_opt = DecisionTreeClassifier(max_depth=best_hp)
@@ -157,7 +164,34 @@ def decision_tree(dataset, testset):
     X_test = testset[:,:-1]
     y_test = testset[:,-1]
     y_predict = DTC_opt.predict(X_test)
-    testAcc =  accuracy_score(y_test, y_predict)
+    testAcc = accuracy_score(y_test, y_predict)
     print("Accuracy on test set is ", testAcc)
 
 decision_tree(training_set, testing_set)
+
+
+# Question 4
+
+def random_forest(dataset, testset):
+    X = dataset[:, :-1]
+    y = dataset[:,-1]
+
+    hpAcc = []
+    hp = {'max_depth':range(3,8), 'n_estimators':range(1,4)}
+    
+    RTC = RandomForestClassifier()
+    # define random search estimator
+    RSE = RandomizedSearchCV(RTC, hp, n_iter=15, cv=5, random_state=0)
+    model = RSE.fit(X, y)
+
+    from pprint import pprint
+    pprint(model.best_estimator_.get_params())
+
+    X_test = testset[:, :-1]
+    y_test = testset[:,-1]
+
+    y_predict = model.predict(X_test)
+    testAcc = accuracy_score(y_test, y_predict)
+    print("Accuracy on test set is ", testAcc)
+
+random_forest(training_set, testing_set)
