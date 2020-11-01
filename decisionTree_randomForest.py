@@ -1,6 +1,15 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import math
+import csv
+from sklearn.model_selection import train_test_split
+from sklearn.model_selection import cross_val_score
+from sklearn.tree import DecisionTreeClassifier
+from operator import itemgetter
+from sklearn import tree
+import graphviz
+from sklearn.tree import export_text
+from sklearn.metrics import accuracy_score
 
 class DataPoint(object): # DataPoint class helps to group data and methods
     def __init__(self, attr):
@@ -25,7 +34,7 @@ def parse_dataset(filename):
     data_file = open(filename, 'r')  # Open File "to read"
     dataset = []  # List to hold Datapoint objects
 
-    for index, line in enumerate(data_file):
+    for line in data_file:
         clump,cellsize,cellshape,adhesion,epithelial,nuclei,chromatin,nucleoli,mitoses,outcome = line.strip().split(',')  # strip() removes '\n', and split(',') splits the line at tabs
         dataset.append(DataPoint({'clump_thickness':int(clump), 'uniformity_cellsize':int(cellsize), 'uniformity_cellshape':int(cellshape), 'marginal_adhesion':int(adhesion), 'single_epithelial_cellsize':int(epithelial), 'bare_nuclei':int(nuclei), 'bland_chromatin':int(chromatin), 'normal_nucleoli':int(nucleoli), 'mitoses':int(mitoses), 'benign_malignant':int(outcome)}))  # Create DataPoint object for the given data
 
@@ -114,5 +123,41 @@ def cond_entropy(dataset):
             entropy += valTotal/caseTotal * (-featAttr)
         print("Entropy of feature ", feats[i], " is ", entropy)
 
-
 cond_entropy(train_set)
+
+# For question 3, import training data in matrix format to facilitate construction of X and Y matrices
+training_set = np.array(list(csv.reader(open("hw4_train.csv", "r"), delimiter=","))).astype("int")
+
+testing_set = np.array(list(csv.reader(open("hw4_test.csv", "r"), delimiter=","))).astype("int")
+
+def decision_tree(dataset, testset):
+    y = dataset[:, -1] # last column of matrix
+    X = dataset[:, :-1] # all columns upto last column
+    
+    hpAcc = [] # store average accuracy for each hyperparameter value (tree depth) tested
+    # try out different values for tree depth
+    for i in range(3,8):
+        DTC = DecisionTreeClassifier(max_depth=i) # define decision tree classifier
+
+        # perform 5-fold cross-validation
+        acc = cross_val_score(estimator = DTC, X=X, y=y, cv=5)
+        hpAcc.append((i,acc.mean()))
+        
+    
+    best_hp = max(hpAcc, key=itemgetter(1))[0]
+    
+    DTC_opt = DecisionTreeClassifier(max_depth=best_hp)
+    DTC_opt.fit(X, y)
+
+    # visualizing the decision tree with optimal hyperparameter
+    # features = ["clump", "cellsize", "cellshape", "adhesion", "epithelial", "nuclei", "chromatin", "nucleoli", "mitoses"]
+    # txttree = export_text(DTC_opt, feature_names=features)
+    # print(txttree)
+
+    X_test = testset[:,:-1]
+    y_test = testset[:,-1]
+    y_predict = DTC_opt.predict(X_test)
+    testAcc =  accuracy_score(y_test, y_predict)
+    print("Accuracy on test set is ", testAcc)
+
+decision_tree(training_set, testing_set)
